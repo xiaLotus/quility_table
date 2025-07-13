@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>數據管理系統</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://unpkg.com/vuedraggable@4.1.0/dist/vuedraggable.umd.js"></script>
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="tailwind.config.js"></script>
+    <style>
+        [v-cloak] { display: none; }
+        .table-container {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .table-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        .table-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .fade-enter-active, .fade-leave-active {
+            transition: opacity 0.3s ease;
+        }
+        .fade-enter-from, .fade-leave-to {
+            opacity: 0;
+        }
+        .slide-up-enter-active, .slide-up-leave-active {
+            transition: all 0.3s ease;
+        }
+        .slide-up-enter-from {
+            transform: translateY(20px);
+            opacity: 0;
+        }
+        .slide-up-leave-to {
+            transform: translateY(-20px);
+            opacity: 0;
+        }
+        .table-container {
+            overflow-x: auto;
+            width: 100%;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div id="app" v-cloak>
+        <!-- 頂部導航 -->
+        <nav class="bg-white shadow-lg border-b border-gray-200" data-aos="fade-down">
+            <div class="w-full px-4">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center">
+                        <i class="fas fa-database text-blue-600 text-2xl mr-3"></i>
+                        <h1 class="text-xl font-bold text-gray-900">數據管理系統</h1>
+                    </div>
+                    <button 
+                        @click="openUploadCard"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center space-x-2"
+                    >
+                        <i class="fas fa-plus"></i>
+                        <span>新增數據</span>
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 表格容器 -->
+       <div class="table-container relative w-full overflow-auto min-h-[650px] bg-white rounded-lg shadow-md px-4" data-aos="fade-up" data-aos-delay="100">
+        <!-- 表格標題 -->
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-semibold text-gray-900 flex items-center">
+                <i class="fas fa-table mr-2"></i>數據列表
+                <span class="ml-2 text-sm text-gray-500">({{ filteredData.length }} 筆記錄)</span>
+                </h2>
+            </div>
+
+            <!-- 表格主體 -->
+            <table class="min-w-[1024px] w-full table-auto divide-y divide-gray-200">
+                <thead class="bg-gray-50 sticky top-0 z-20">
+                    <tr>
+                        <!-- keyinDay 欄 -->
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative z-30">
+                            <div class="flex items-center justify-between">
+                                <span>輸入日期</span>
+                                <div class="relative">
+                                    <button @click="toggleFilter('keyinDay')" class="text-gray-400 hover:text-gray-600">
+                                        <i class="fas fa-filter text-xs"></i>
+                                    </button>
+                                    <div
+                                        v-if="activeFilter === 'keyinDay'" 
+                                        class="filter-popup absolute left-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-48 max-h-48 overflow-y-auto"
+                                        :style="{ transform: 'translateX(-140px)' }"
+                                        >
+                                        <div class="p-2">
+                                            <label class="flex items-center p-1 hover:bg-gray-50">
+                                                <input type="checkbox" v-model="selectAllKeyinDay" @change="toggleAllKeyinDay" class="mr-2" />
+                                                <span class="text-sm">全選</span>
+                                            </label>
+                                            <hr class="my-1" />
+                                            <label v-for="value in uniqueKeyinDay" :key="value" class="flex items-center p-1 hover:bg-gray-50">
+                                                <input type="checkbox" v-model="filters.keyinDay" :value="value" class="mr-2" />
+                                                <span class="text-sm">{{ value }}</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </th>
+                        <!-- Data 欄 -->
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative z-30">
+                            <div class="flex items-center justify-between">
+                                <span>Data</span>
+                                <div class="relative">
+                                    <button @click="toggleFilter('data')" class="  text-gray-400 hover:text-gray-600">
+                                        <i class="fas fa-filter text-xs"></i>
+                                    </button>
+                                    <div v-if="activeFilter === 'data'" class="filter-popup absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-48 max-h-48 overflow-y-auto">
+                                        <div class="p-2">
+                                            <label class="flex items-center p-1 hover:bg-gray-50">
+                                                <input type="checkbox" v-model="selectAllData" @change="toggleAllData" class="mr-2" />
+                                                <span class="text-sm">全選</span>
+                                            </label>
+                                            <hr class="my-1" />
+                                            <label v-for="value in uniqueData" :key="value" class="flex items-center p-1 hover:bg-gray-50">
+                                                <input type="checkbox" v-model="filters.data" :value="value" class="mr-2" />
+                                                <span class="text-sm">{{ value }}</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </th>
+
+                        <!-- 說明欄 -->
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative z-30">
+                            <div class="flex items-center justify-between">
+                                <span>說明</span>
+                                <div class="relative">
+                                <button @click="toggleFilter('description')" class=" text-gray-400 hover:text-gray-600">
+                                    <i class="fas fa-filter text-xs"></i>
+                                </button>
+                                <div v-if="activeFilter === 'description'" class="filter-popup absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-48 max-h-48 overflow-y-auto">
+                                    <div class="p-2">
+                                    <label class="flex items-center p-1 hover:bg-gray-50">
+                                        <input type="checkbox" v-model="selectAllDescription" @change="toggleAllDescription" class="mr-2" />
+                                        <span class="text-sm">全選</span>
+                                    </label>
+                                    <hr class="my-1" />
+                                    <label v-for="value in uniqueDescription" :key="value" class="flex items-center p-1 hover:bg-gray-50">
+                                        <input type="checkbox" v-model="filters.description" :value="value" class="mr-2" />
+                                        <span class="text-sm">{{ value }}</span>
+                                    </label>
+                                    </div>
+                                </div>
+                                </div>
+                            </div>
+                        </th>
+                        <!-- LC欄 -->
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative z-30">
+                            <div class="flex items-center justify-between">
+                                <span>LC</span>
+                                <div class="relative">
+                                <button @click="toggleFilter('lc')" class=" text-gray-400 hover:text-gray-600">
+                                    <i class="fas fa-filter text-xs"></i>
+                                </button>
+                                <div v-if="activeFilter === 'lc'" class="filter-popup absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-48 max-h-48 overflow-y-auto">
+                                    <div class="p-2">
+                                    <label class="flex items-center p-1 hover:bg-gray-50">
+                                        <input type="checkbox" v-model="selectAllLc" @change="toggleAllLc" class="mr-2" />
+                                        <span class="text-sm">全選</span>
+                                    </label>
+                                    <hr class="my-1" />
+                                    <label v-for="value in uniqueLc" :key="value" class="flex items-center p-1 hover:bg-gray-50">
+                                        <input type="checkbox" v-model="filters.lc" :value="value" class="mr-2" />
+                                        <span class="text-sm">{{ value }}</span>
+                                    </label>
+                                    </div>
+                                </div>
+                                </div>
+                            </div>
+                        </th>
+                        <!-- Quantity -->
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative z-30">
+                            <div class="flex items-center justify-between">
+                                <span>影響數量</span>
+                                <div class="relative">
+                                <button @click="toggleFilter('quantity')" class=" text-gray-400 hover:text-gray-600">
+                                    <i class="fas fa-filter text-xs"></i>
+                                </button>
+                                <div v-if="activeFilter === 'quantity'" class="filter-popup absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-48 max-h-48 overflow-y-auto">
+                                    <div class="p-2">
+                                    <label class="flex items-center p-1 hover:bg-gray-50">
+                                        <input type="checkbox" v-model="selectAllQuantity" @change="toggleAllQuantity" class="mr-2" />
+                                        <span class="text-sm">全選</span>
+                                    </label>
+                                    <hr class="my-1" />
+                                    <label v-for="value in uniqueQuantity" :key="value" class="flex items-center p-1 hover:bg-gray-50">
+                                        <input type="checkbox" v-model="filters.quantity" :value="value" class="mr-2" />
+                                        <span class="text-sm">{{ value }}</span>
+                                    </label>
+                                    </div>
+                                </div>
+                                </div>
+                            </div>
+                        </th>
+                        <!-- batchNumber -->
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative z-30">
+                            <div class="flex items-center justify-between">
+                                <span>批號</span>
+                                <div class="relative">
+                                <button @click="toggleFilter('batchNumber')" class=" text-gray-400 hover:text-gray-600">
+                                    <i class="fas fa-filter text-xs"></i>
+                                </button>
+                                <div v-if="activeFilter === 'batchNumber'" class="filter-popup absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-48 max-h-48 overflow-y-auto">
+                                    <div class="p-2">
+                                    <label class="flex items-center p-1 hover:bg-gray-50">
+                                        <input type="checkbox" v-model="selectAllBatchNumber" @change="toggleAllBatchNumber" class="mr-2" />
+                                        <span class="text-sm">全選</span>
+                                    </label>
+                                    <hr class="my-1" />
+                                    <label v-for="value in uniqueBatchNumber" :key="value" class="flex items-center p-1 hover:bg-gray-50">
+                                        <input type="checkbox" v-model="filters.batchNumber" :value="value" class="mr-2" />
+                                        <span class="text-sm">{{ value }}</span>
+                                    </label>
+                                    </div>
+                                </div>
+                                </div>
+                            </div>
+                        </th>
+                        <!-- yield -->
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative z-30">
+                            <div class="flex items-center justify-between">
+                                <span>Yield</span>
+                                <div class="relative">
+                                <button @click="toggleFilter('yield')" class=" text-gray-400 hover:text-gray-600">
+                                    <i class="fas fa-filter text-xs"></i>
+                                </button>
+                                <div v-if="activeFilter === 'yield'" class="filter-popup absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-48 max-h-48 overflow-y-auto">
+                                    <div class="p-2">
+                                    <label class="flex items-center p-1 hover:bg-gray-50">
+                                        <input type="checkbox" v-model="selectAllYield" @change="toggleAllYield" class="mr-2" />
+                                        <span class="text-sm">全選</span>
+                                    </label>
+                                    <hr class="my-1" />
+                                    <label v-for="value in uniqueYield" :key="value" class="flex items-center p-1 hover:bg-gray-50">
+                                        <input type="checkbox" v-model="filters.yield" :value="value" class="mr-2" />
+                                        <span class="text-sm">{{ value }}</span>
+                                    </label>
+                                    </div>
+                                </div>
+                                </div>
+                            </div>
+                        </th>
+                        <!-- currentSite -->
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative z-30">
+                            <div class="flex items-center justify-between">
+                                <span>目前站點</span>
+                                <div class="relative">
+                                <button @click="toggleFilter('currentSite')" class=" text-gray-400 hover:text-gray-600">
+                                    <i class="fas fa-filter text-xs"></i>
+                                </button>
+                                <div v-if="activeFilter === 'currentSite'" class="filter-popup absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-48 max-h-48 overflow-y-auto">
+                                    <div class="p-2">
+                                    <label class="flex items-center p-1 hover:bg-gray-50">
+                                        <input type="checkbox" v-model="selectAllCurrentSite" @change="toggleAllCurrentSite" class="mr-2" />
+                                        <span class="text-sm">全選</span>
+                                    </label>
+                                    <hr class="my-1" />
+                                    <label v-for="value in uniqueCurrentSite" :key="value" class="flex items-center p-1 hover:bg-gray-50">
+                                        <input type="checkbox" v-model="filters.currentSite" :value="value" class="mr-2" />
+                                        <span class="text-sm">{{ value }}</span>
+                                    </label>
+                                    </div>
+                                </div>
+                                </div>
+                            </div>
+                        </th>
+                        <!-- client -->
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative z-30">
+                            <div class="flex items-center justify-between">
+                                <span>Client</span>
+                                <div class="relative">
+                                <button @click="toggleFilter('client')" class=" text-gray-400 hover:text-gray-600">
+                                    <i class="fas fa-filter text-xs"></i>
+                                </button>
+                                <div v-if="activeFilter === 'client'" class="filter-popup absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-48 max-h-48 overflow-y-auto">
+                                    <div class="p-2">
+                                    <label class="flex items-center p-1 hover:bg-gray-50">
+                                        <input type="checkbox" v-model="selectAllClient" @change="toggleAllClient" class="mr-2" />
+                                        <span class="text-sm">全選</span>
+                                    </label>
+                                    <hr class="my-1" />
+                                    <label v-for="value in uniqueClient" :key="value" class="flex items-center p-1 hover:bg-gray-50">
+                                        <input type="checkbox" v-model="filters.client" :value="value" class="mr-2" />
+                                        <span class="text-sm">{{ value }}</span>
+                                    </label>
+                                    </div>
+                                </div>
+                                </div>
+                            </div>
+                        </th>
+                        <!-- status -->
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative z-30">
+                            <div class="flex items-center justify-between">
+                                <span>status</span>
+                                <div class="relative">
+                                <button @click="toggleFilter('status')" class=" text-gray-400 hover:text-gray-600">
+                                    <i class="fas fa-filter text-xs"></i>
+                                </button>
+                                <div v-if="activeFilter === 'status'" class="filter-popup absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-48 max-h-48 overflow-y-auto">
+                                    <div class="p-2">
+                                    <label class="flex items-center p-1 hover:bg-gray-50">
+                                        <input type="checkbox" v-model="selectAllStatus" @change="toggleAllStatus" class="mr-2" />
+                                        <span class="text-sm">全選</span>
+                                    </label>
+                                    <hr class="my-1" />
+                                    <label v-for="value in uniqueStatus" :key="value" class="flex items-center p-1 hover:bg-gray-50">
+                                        <input type="checkbox" v-model="filters.status" :value="value" class="mr-2" />
+                                        <span class="text-sm">{{ value }}</span>
+                                    </label>
+                                    </div>
+                                </div>
+                                </div>
+                            </div>
+                        </th>
+                        <!-- closeDay -->
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative z-30">
+                            <div class="flex items-center justify-between">
+                                <span>Close Day</span>
+                                <div class="relative">
+                                <button @click="toggleFilter('closeDay')" class=" text-gray-400 hover:text-gray-600">
+                                    <i class="fas fa-filter text-xs"></i>
+                                </button>
+                                <div v-if="activeFilter === 'closeDay'" class="filter-popup absolute top-full right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 w-48 max-h-48 overflow-y-auto">
+                                    <div class="p-2">
+                                    <label class="flex items-center p-1 hover:bg-gray-50">
+                                        <input type="checkbox" v-model="selectAllCloseDay" @change="toggleAllCloseDay" class="mr-2" />
+                                        <span class="text-sm">全選</span>
+                                    </label>
+                                    <hr class="my-1" />
+                                    <label v-for="value in uniqueCloseDay" :key="value" class="flex items-center p-1 hover:bg-gray-50">
+                                        <input type="checkbox" v-model="filters.closeDay" :value="value" class="mr-2" />
+                                        <span class="text-sm">{{ value }}</span>
+                                    </label>
+                                    </div>
+                                </div>
+                                </div>
+                            </div>
+                        </th>
+
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative z-30">
+                            <div class="flex items-center justify-between">
+                                <span>查看</span>
+                            </div>
+                        </th>
+                    </tr>
+                </thead>
+
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <tr v-for="(item, index) in filteredData" :key="item.id" class="hover:bg-gray-50 transition-colors duration-150">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ item.keyinDay }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ item.data }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ item.description }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ item.lc }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ item.quantity }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ item.batchNumber }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ item.yield }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ item.currentSite }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ item.client }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ item.status }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ item.closeDay }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <button @click="editItem(item)" class="hover:underline">
+                                修正
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+        <!-- 無資料時的空狀態 -->
+        <div v-if="filteredData.length === 0" class="text-center py-12">
+            <i class="fas fa-inbox text-gray-400 text-4xl mb-4"></i>
+            <p class="text-gray-500 text-lg">沒有找到符合條件的數據</p>
+        </div>
+        </div>
+
+
+
+        <!-- 上傳卡片模態框 -->
+        <transition name="fade">
+        <div v-if="showUploadCard" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+            <div class="absolute inset-0" @click="closeUploadCard"></div>
+
+            <transition name="slide-up">
+            <div class="relative z-10 bg-white w-[1024px] max-w-full rounded-lg shadow-xl" @click.stop>
+                <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">新增數據</h3>
+                </div>
+
+                <form @submit.prevent="submitData" class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- 左邊 2 欄：主要欄位 -->
+                    <div class="md:col-span-2 flex flex-col space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">開單時間</label>
+                            <input 
+                                v-model="newItem.keyinDay"
+                                type="date"
+                                required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            >
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Data</label>
+                        <input v-model="newItem.data" type="text" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">LC</label>
+                        <input v-model="newItem.lc" type="text" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">影響數量</label>
+                        <input v-model.number="newItem.quantity" type="number" step="0.01" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">批號</label>
+                            <input v-model="newItem.batchNumber" type="text" required
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Yield (%)</label>
+                            <input v-model.number="newItem.yield" type="number" step="0.01" min="0" max="100" required
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">目前站點</label>
+                        <input v-model="newItem.currentSite" type="text" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                        <input v-model="newItem.client" type="text"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select v-model="newItem.status" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">選擇狀態</option>
+                        <option value="進行中">進行中</option>
+                        <option value="已完成">已完成</option>
+                        <option value="暫停">暫停</option>
+                        <option value="取消">取消</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Close Day</label>
+                        <input v-model="newItem.closeDay" type="date" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    </div>
+                    </div>
+
+                    <!-- 右邊 1 欄：說明 -->
+                    <div class="flex flex-col">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">說明</label>
+                        <textarea v-model="newItem.description"
+                        class="flex-1 min-h-[200px] max-h-[400px] px-3 py-2 border border-gray-300 rounded-lg resize-none overflow-auto focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </textarea>
+                    </div>
+                </div>
+
+                <!-- 按鈕列 -->
+                <div class="flex space-x-3 pt-6 justify-end">
+                    <button type="submit" @click="addSaveToBackend"
+                    class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg transition-colors duration-200">
+                    <i class="fas fa-upload mr-2"></i>上傳
+                    </button>
+                    <button type="button" @click="closeUploadCard"
+                    class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-6 rounded-lg transition-colors duration-200">
+                    <i class="fas fa-times mr-2"></i>取消
+                    </button>
+                </div>
+                </form>
+            </div>
+            </transition>
+        </div>
+        </transition>
+
+
+        <transition name="fade">
+            <div v-if="showViewModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+                <div class="absolute inset-0" @click="closeViewModal"></div>
+                <transition name="slide-up">
+                    <div class="relative z-10 bg-white w-[1024px] max-w-full rounded-lg shadow-xl max-h-[90vh] overflow-y-auto" @click.stop>
+                        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
+                            <h3 class="text-lg font-semibold text-gray-900">編輯數據</h3>
+                            <div class="space-x-2">
+                                <button @click="activeTab = 'edit'"
+                                    :class="activeTab === 'edit' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
+                                    class="px-4 py-1 rounded-lg text-sm font-medium">
+                                    編輯資訊
+                                </button>
+                                <button @click="activeTab = 'progress'"
+                                    :class="activeTab === 'progress' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
+                                    class="px-4 py-1 rounded-lg text-sm font-medium">
+                                    更新進度
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 編輯資訊 -->
+                        <form v-if="activeTab === 'edit'" @submit.prevent="updateItem" class="p-6">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div class="md:col-span-2 flex flex-col space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">開單時間</label>
+                                        <input v-model="selectedItem.keyinDay" type="date" required
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500" />
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Data</label>
+                                        <input v-model="selectedItem.data" type="text" required
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500" />
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">LC</label>
+                                        <input v-model="selectedItem.lc" type="text" required
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500" />
+                                    </div>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">影響數量</label>
+                                            <input v-model.number="selectedItem.quantity" type="number" step="0.01" required
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Yield (%)</label>
+                                            <input v-model.number="selectedItem.yield" type="number" min="0" max="100" step="0.01" required
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500" />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">批號</label>
+                                        <input v-model="selectedItem.batchNumber" type="text" required
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500" />
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">目前站點</label>
+                                        <input v-model="selectedItem.currentSite" type="text" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500" />
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                                        <input v-model="selectedItem.client" type="text"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500" />
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                        <select v-model="selectedItem.status" required
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500">
+                                            <option value="進行中">進行中</option>
+                                            <option value="已完成">已完成</option>
+                                            <option value="暫停">暫停</option>
+                                            <option value="取消">取消</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Close Day</label>
+                                        <input v-model="selectedItem.closeDay" type="date" required
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500" />
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">說明</label>
+                                    <textarea v-model="selectedItem.description"
+                                        class="flex-1 min-h-[200px] max-h-[400px] px-3 py-2 border border-gray-300 rounded-lg resize-none overflow-auto focus:ring-blue-500">
+                                    </textarea>
+                                </div>
+                            </div>
+
+                            <div class="flex space-x-3 pt-6 justify-end">
+                                <button type="submit" @click="updateItem"
+                                    class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg transition-colors duration-200">
+                                    <i class="fas fa-save mr-2"></i>保存
+                                </button>
+                                <button type="button" @click="closeViewModal"
+                                    class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-6 rounded-lg transition-colors duration-200">
+                                    <i class="fas fa-times mr-2"></i>關閉
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- 更新進度區塊 -->
+                        <div v-if="activeTab === 'progress'" class="p-6 space-y-4">
+                            <label class="block text-sm font-medium text-gray-700">新增進度留言</label>
+                            <textarea v-model="newProgressNote" rows="4" placeholder="輸入進度更新內容..."
+                                class="w-full px-3 py-2 border border-blue-300 rounded-lg resize-none focus:ring-blue-500"></textarea>
+                            <div class="text-right">
+                                <button @click="addProgressNote"
+                                    class="bg-blue-600 hover:bg-blue-700 text-white py-1 px-4 rounded-lg text-sm transition-colors">
+                                    發佈留言
+                                </button>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">歷史進度</label>
+                                <ul class="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+                                    <li v-for="(note, index) in selectedItem.progressLog" :key="index"
+                                        class="bg-gray-100 rounded-lg px-4 py-2 text-sm text-gray-800">
+                                        <div class="text-xs text-gray-500 mb-1">{{ note.time }}</div>
+                                        <div class="whitespace-pre-line">{{ note.text }}</div>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </transition>
+            </div>
+        </transition>
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
