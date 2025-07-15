@@ -541,6 +541,26 @@ const app = Vue.createApp({
                 this.activeFilter = '';
             }
         },
+        formatDescription(text) {
+            if (!text) return '';
+            
+            // 先按照原有的換行分割
+            const lines = text.split('\n');
+            
+            // 對每一行進行30字限制處理
+            const formattedLines = lines.map(line => {
+                if (line.length <= 30) return line;
+                
+                // 每30字插入換行
+                const chunks = [];
+                for (let i = 0; i < line.length; i += 30) {
+                    chunks.push(line.substring(i, i + 30));
+                }
+                return chunks.join('\n');
+            });
+            
+            return formattedLines.join('\n');
+        }
     },
     mounted() {
         document.addEventListener('click', this.handleClickOutside);
