@@ -9,17 +9,24 @@ const app = Vue.createApp({
             isEditing: false,
             selectedItem: {},
             newItem: {
-                keyinDay: '',
-                data: '', 
-                description: '', 
-                lc: '', 
-                quantity: 0, 
                 batchNumber: '', 
-                yield: 0, 
-                currentSite: '', 
+                abnormalTime: '',
+                data: '', 
+                lc: '', 
                 client: '',
+                lowYield: 0,
+                yield: 0, 
+                quantity: 0, 
+                building: '',
+                floor: '',
+                station: '',
+                currentSite: '', 
                 status: '', 
+                is8D: false,
+                isUnreported: false,
                 closeDay: '',
+                finalShipmentYield: 0,
+                description: '', 
             },
 
             filters: {
@@ -333,16 +340,24 @@ const app = Vue.createApp({
         },
         resetNewItem() {
             this.newItem = {
-                keyinDay: '', 
-                data: '', 
-                description: '', 
-                lc: '', 
-                quantity: 0, 
                 batchNumber: '', 
+                abnormalTime: '',
+                data: '', 
+                lc: '', 
+                client: '',
+                lowYield: 0,
                 yield: 0, 
+                quantity: 0, 
+                building: '',
+                floor: '',
+                station: '',
                 currentSite: '', 
                 status: '', 
-                closeDay: '' 
+                is8D: false,
+                isUnreported: false,
+                closeDay: '',
+                finalShipmentYield: 0,
+                description: '', 
             };
         },
         submitData() {
@@ -433,21 +448,29 @@ const app = Vue.createApp({
         openUploadCard() {
             const today = new Date().toISOString().slice(0, 10); // yyyy-mm-dd
             this.newItem = {
-                keyinDay: today,
+                batchNumber: '', 
+                abnormalTime: '',
                 data: '',
-                description: '',
                 lc: '',
-                quantity: '',
-                batchNumber: '',
-                yield: '',
-                currentSite: '',
                 client: '',
+                lowYield: '',
+                yield: '',
+                quantity: '',
+                building: '',
+                floor: '',
+                station: '',
+                currentSite: '',
                 status: '',
-                closeDay: ''
+                is8D: false,
+                isUnreported: false,
+                closeDay: '',
+                finalShipmentYield: '',
+                description: ''
             };
             this.showUploadCard = true;
         },
         async addSaveToBackend() {
+
             fetch('http://127.0.0.1:5000/add_record', {
                 method: 'POST',
                 headers: {

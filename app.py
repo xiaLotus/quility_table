@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 import uuid
 import shutil
-
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
@@ -15,8 +15,10 @@ RECORD_FILE = "data/records.csv"
 PROGRESS_FILE = "data/progress_log.csv"
 
 RECORD_FILE_FIELD_ORDER = [
-    "id", "keyinDay", "data", "description", "lc", "quantity",
-    "batchNumber", "yield", "currentSite", "client", "status", "closeDay"
+    "id", "batchNumber", "abnormalTime", "data", "lc", "client", 
+    "lowYield", "yield", "quantity", "building", "floor", "station",
+    "currentSite", "status", "is8D", "isUnreported", "closeDay", 
+    "finalShipmentYield", "description"
 ]
 
 # 確保資料夾存在
@@ -62,6 +64,23 @@ def add_record():
             return jsonify({"status": "error", "message": "Invalid record"}), 400
         
         record["id"] = uuid.uuid4().hex
+        # 處理布林值轉換
+        record["is8D"] = str(record.get("is8D", False)).lower() == "true"
+        record["isUnreported"] = str(record.get("isUnreported", False)).lower() == "true"
+        # 在布林值處理後加入：
+        if 'abnormalTime' in record and record['abnormalTime']:
+            try:
+                dt = datetime.fromisoformat(record['abnormalTime'])
+                record['abnormalTime'] = dt.strftime('%Y-%m-%d %H:%M:%S')
+            except:
+                pass 
+
+        if 'closeDay' in record and record['closeDay']:
+            try:
+                dt = datetime.fromisoformat(record['closeDay'])
+                record['closeDay'] = dt.strftime('%Y-%m-%d %H:%M:%S')
+            except:
+                pass
         write_header = not os.path.exists(RECORD_FILE)
         with open(RECORD_FILE, "a", newline="", encoding="utf-8-sig") as f:
             writer = csv.DictWriter(f, fieldnames=RECORD_FILE_FIELD_ORDER)
@@ -87,7 +106,23 @@ def update_record():
 
         if not isinstance(updated, dict) or "id" not in updated:
             return jsonify(status="error", message="Missing or invalid record ID"), 400
+        
+        updated["is8D"] = str(updated.get("is8D", False)).lower() == "true"
+        updated["isUnreported"] = str(updated.get("isUnreported", False)).lower() == "true"
+        # 在布林值處理後加入：
+        if 'abnormalTime' in updated and updated['abnormalTime']:
+            try:
+                dt = datetime.fromisoformat(updated['abnormalTime'])
+                updated['abnormalTime'] = dt.strftime('%Y-%m-%d %H:%M:%S')
+            except:
+                pass  
 
+        if 'closeDay' in updated and updated['closeDay']:
+            try:
+                dt = datetime.fromisoformat(updated['closeDay'])
+                updated['closeDay'] = dt.strftime('%Y-%m-%d %H:%M:%S')
+            except:
+                pass
         updated_id = updated["id"]
         updated_data = []
         found = False
